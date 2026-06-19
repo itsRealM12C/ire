@@ -226,11 +226,11 @@
             <div class="controls-group">
                 <label for="mp4Resolution"><strong>Resolution Output</strong></label>
                 <select id="mp4Resolution" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
-                    <option value="100x100">100 x 100 (Fast Matrix)</option>
+                    <option value="400x400">400 x 400 (Square Square)</option>
                     <option value="640x480">640 x 480 (Standard)</option>
-                    <option value="320x240">320 x 240 (Legacy Screen)</option>
+                    <option value="320x240">320 x 240 (Fast Legacy)</option>
                     <option value="1280x720">1280 x 720 (HD)</option>
-                    <option value="1x1">1 x 1 (Bare Minimum)</option>
+                    <option value="100x100">100 x 100 (Micro Profile)</option>
                 </select>
             </div>
             <div class="controls-group">
@@ -842,11 +842,19 @@
                 }
                 offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
                 
-                // Add visible text tags if resolution allows comfortably
-                if (targetWidth >= 100 && targetHeight >= 100) {
+                // Scale text indicators elegantly across square canvas modes
+                if (targetWidth >= 400 && targetHeight >= 400) {
+                    offCtx.fillStyle = (bitValue === '1') ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.15)';
+                    offCtx.font = `bold ${Math.floor(targetHeight / 4.5)}px monospace`;
+                    offCtx.textAlign = 'center';
+                    offCtx.textBaseline = 'middle';
+                    offCtx.fillText(bitValue, targetWidth / 2, targetHeight / 2);
+                } else if (targetWidth >= 100 && targetHeight >= 100) {
                     offCtx.fillStyle = (bitValue === '1') ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)';
-                    offCtx.font = `bold ${Math.floor(targetHeight/6)}px monospace`;
-                    offCtx.fillText(bitValue, Math.floor(targetWidth/2.6), Math.floor(targetHeight/1.6));
+                    offCtx.font = `bold ${Math.floor(targetHeight / 6)}px monospace`;
+                    offCtx.textAlign = 'left';
+                    offCtx.textBaseline = 'alphabetic';
+                    offCtx.fillText(bitValue, Math.floor(targetWidth / 2.6), Math.floor(targetHeight / 1.6));
                 }
             };
 
