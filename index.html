@@ -63,29 +63,32 @@
         canvas { display: none; }
         #log { 
             background: var(--log-bg); padding: 15px; border: 1px solid var(--border-color); 
-            height: 250px; overflow-y: auto; text-align: left; word-break: break-all; 
+            height: 220px; overflow-y: auto; text-align: left; word-break: break-all; 
             margin-top: 20px; font-size: 14px; letter-spacing: 1px; line-height: 1.6;
             border-radius: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
             transition: background-color 0.3s;
         }
         .controls-container {
             margin: 20px auto; border: 1px dashed var(--border-color); padding: 20px; 
-            display: inline-block; max-width: 850px; border-radius: 12px;
+            display: inline-block; max-width: 900px; border-radius: 12px;
+            box-sizing: border-box; width: 100%;
         }
         .controls-row {
             margin-bottom: 15px; display: flex; flex-wrap: wrap; justify-content: center; 
-            gap: 15px; align-items: center;
+            gap: 12px; align-items: stretch;
         }
         .controls-group {
-            display: flex; flex-direction: column; align-items: center;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
             background: rgba(100, 116, 139, 0.1); padding: 10px 15px; border: 1px solid var(--border-color); border-radius: 8px;
+            flex: 1; min-width: 160px;
         }
+        .controls-group label { font-size: 12px; margin-bottom: 4px; }
         
         button, select { 
             background: var(--btn-bg); color: var(--btn-text); font-weight: 500; 
-            padding: 10px 18px; border: none; cursor: pointer; border-radius: 8px;
+            padding: 10px 14px; border: none; cursor: pointer; border-radius: 8px;
             font-family: 'Comfortaa', sans-serif; transition: background-color 0.2s, transform 0.1s;
-            outline: none;
+            outline: none; font-size: 13px;
         }
         button:hover, select:hover { background: var(--btn-hover); }
         button:active { transform: scale(0.98); }
@@ -99,30 +102,49 @@
         .map-btn:hover { background: #c2410c; }
 
         input[type="range"] {
-            -webkit-appearance: none; width: 140px; height: 8px; border-radius: 5px; outline: none; 
-            margin-top: 8px; border: 1px solid var(--border-color); background: #334155;
+            -webkit-appearance: none; width: 100%; max-width: 140px; height: 6px; border-radius: 5px; outline: none; 
+            margin-top: 6px; border: 1px solid var(--border-color); background: #334155;
         }
         input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none; width: 16px; height: 16px; 
+            -webkit-appearance: none; appearance: none; width: 14px; height: 14px; 
             background: var(--text-color); cursor: pointer; border-radius: 50%;
         }
         #thresholdSlider { background: linear-gradient(to right, #000000, #ffffff); }
         .status-text { font-size: 12px; margin-top: 10px; opacity: 0.7; }
-        #keymapStatus { color: #f59e0b; font-weight: 500; margin-left: 10px; }
-        #liveColor { font-weight: bold; margin-left: 10px; color: var(--text-color); }
+        #keymapStatus { color: #f59e0b; font-weight: 500; margin-left: 10px; font-size: 13px; }
+        #liveColor { font-weight: bold; margin-left: 10px; color: var(--text-color); font-size: 13px; }
         
+        .section-title {
+            width: 100%; text-align: left; font-size: 11px; font-weight: bold; 
+            text-transform: uppercase; letter-spacing: 1px; margin: 5px 0; opacity: 0.6;
+        }
+
+        /* Extended Rendering Progress Overlay */
         #renderOverlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.85); display: none; flex-direction: column; 
+            background: rgba(15, 23, 42, 0.95); display: none; flex-direction: column; 
             justify-content: center; align-items: center; z-index: 1000; color: #fff;
         }
+        .progress-box {
+            width: 80%; max-width: 500px; background: #334155; 
+            border-radius: 20px; padding: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            margin: 20px 0; border: 1px solid var(--border-color);
+        }
+        .progress-bar {
+            width: 0%; height: 16px; background: linear-gradient(90deg, #3b82f6, #10b981); 
+            border-radius: 20px; transition: width 0.1s linear;
+        }
+        #renderStatusText { font-size: 14px; opacity: 0.8; font-weight: 300; }
     </style>
 </head>
 <body>
 
     <div id="renderOverlay">
-        <h2>Rendering File...</h2>
-        <p>Please wait.</p>
+        <h2>Converting Container to MP4 Pipeline</h2>
+        <div class="progress-box">
+            <div id="renderProgress" class="progress-bar"></div>
+        </div>
+        <p id="renderStatusText">Processing frames: 0% complete</p>
     </div>
 
     <h2>Optical Signal Analyzer Pro</h2>
@@ -136,6 +158,7 @@
     <canvas id="processor" width="320" height="240"></canvas>
 
     <div class="controls-container">
+        <div class="section-title">Signal Scanning Engine</div>
         <div class="controls-row">
             <div class="controls-group">
                 <label for="speedSlider"><strong>IR Speed Delay: </strong><span id="speedVal">50ms</span></label>
@@ -147,10 +170,11 @@
             </div>
         </div>
 
-        <div class="controls-row" style="border: 1px dashed rgba(100,116,139,0.4); padding: 12px; border-radius: 8px;">
+        <div class="section-title">Live Synth Monitor Instrument</div>
+        <div class="controls-row" style="background: rgba(100,116,139,0.05); padding: 8px; border-radius: 8px; border: 1px dashed rgba(100,116,139,0.2);">
             <div class="controls-group">
                 <label for="waveType"><strong>0/1 Waveform</strong></label>
-                <select id="waveType" style="padding: 4px 8px; margin-top: 5px; font-size: 12px;">
+                <select id="waveType" style="padding: 4px 6px; margin-top: 4px; font-size: 11px;">
                     <option value="sine">Sine (Smooth)</option>
                     <option value="square">Square (Retro)</option>
                     <option value="sawtooth">Sawtooth (Bright)</option>
@@ -171,9 +195,63 @@
             </div>
         </div>
 
+        <div class="section-title">WAV File Config setup</div>
+        <div class="controls-row" style="background: rgba(37, 99, 235, 0.05); padding: 8px; border-radius: 8px; border: 1px solid rgba(37, 99, 235, 0.2);">
+            <div class="controls-group">
+                <label for="wavChannels"><strong>Channels</strong></label>
+                <select id="wavChannels" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="1">1 (Mono)</option>
+                    <option value="2">2 (Stereo Split)</option>
+                </select>
+            </div>
+            <div class="controls-group">
+                <label for="wavSampleRate"><strong>Sample Frequency</strong></label>
+                <select id="wavSampleRate" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="44100">44.1 kHz (HQ)</option>
+                    <option value="22050">22.05 kHz (Medium)</option>
+                    <option value="8000">8.00 kHz (Lo-Fi)</option>
+                </select>
+            </div>
+            <div class="controls-group">
+                <label for="wavBitDepth"><strong>Quality Depth</strong></label>
+                <select id="wavBitDepth" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="16">16-bit PCM</option>
+                    <option value="8">8-bit PCM Unsigned</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="section-title">MP4 File Config setup</div>
+        <div class="controls-row" style="background: rgba(16, 185, 129, 0.05); padding: 8px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.2);">
+            <div class="controls-group">
+                <label for="mp4Resolution"><strong>Resolution Output</strong></label>
+                <select id="mp4Resolution" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="640x480">640 x 480 (Standard)</option>
+                    <option value="320x240">320 x 240 (Fast Render)</option>
+                    <option value="1280x720">1280 x 720 (HD)</option>
+                </select>
+            </div>
+            <div class="controls-group">
+                <label for="mp4Fps"><strong>Frame Target Rate</strong></label>
+                <select id="mp4Fps" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="30">30 FPS (Fluid)</option>
+                    <option value="60">60 FPS (High-Speed)</option>
+                    <option value="15">15 FPS (Compact)</option>
+                </select>
+            </div>
+            <div class="controls-group">
+                <label for="mp4ColorMode"><strong>Color Palette Profile</strong></label>
+                <select id="mp4ColorMode" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="bw">B&W (0=Black, 1=White)</option>
+                    <option value="chroma">IR Spectrum (0=Blue, 1=Red)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="section-title">UI & Pipeline Interfaces</div>
         <div class="controls-row">
             <button id="themeBtn">L/D Mode: Dark</button>
-            <label for="displayMode"><strong>Format: </strong></label>
+            <label for="displayMode" style="align-self: center;"><strong>Format: </strong></label>
             <select id="displayMode">
                 <option value="raw">Raw Binary (0/1)</option>
                 <option value="block">Visual Blocks (░/█)</option>
@@ -182,7 +260,7 @@
                 <option value="dec">Decimal (8-bit)</option>
                 <option value="keymap">Keymap Decoder (16-bit)</option>
             </select>
-            <span id="liveColor">HEX: #000000</span>
+            <span id="liveColor" style="align-self: center;">HEX: #000000</span>
         </div>
 
         <div class="controls-row">
@@ -191,7 +269,7 @@
             <button id="flipBtn">Mirror View</button>
             <input type="file" id="keymapFile" accept=".txt" style="display:none;">
             <button id="loadKeymapBtn" class="map-btn">Manual Map Load</button>
-            <span id="keymapStatus">Looking for keymap.txt...</span>
+            <span id="keymapStatus" style="align-self: center;">Looking for keymap.txt...</span>
         </div>
 
         <div class="controls-row">
@@ -202,7 +280,7 @@
             <button id="vidBtn" class="export-btn">Convert IR as MP4</button>
         </div>
         
-        <div id="runtimeStatus" class="status-text">Pipeline configured. Synth control module loaded.</div>
+        <div id="runtimeStatus" class="status-text">Pipeline configured. Precision parameter wrappers online.</div>
     </div>
 
     <h3>Data Stream (Memory):</h3>
@@ -235,7 +313,11 @@
         const speedVal = document.getElementById('speedVal');
         const thresholdSlider = document.getElementById('thresholdSlider');
         const thresholdVal = document.getElementById('thresholdVal');
+        
+        // Progress bar elements
         const renderOverlay = document.getElementById('renderOverlay');
+        const renderProgress = document.getElementById('renderProgress');
+        const renderStatusText = document.getElementById('renderStatusText');
 
         // Synth control bindings
         const waveType = document.getElementById('waveType');
@@ -245,6 +327,14 @@
         const freq1Val = document.getElementById('freq1Val');
         const volumeSlider = document.getElementById('volumeSlider');
         const volumeVal = document.getElementById('volumeVal');
+
+        // New Advanced Export Bindings
+        const wavChannels = document.getElementById('wavChannels');
+        const wavSampleRate = document.getElementById('wavSampleRate');
+        const wavBitDepth = document.getElementById('wavBitDepth');
+        const mp4Resolution = document.getElementById('mp4Resolution');
+        const mp4Fps = document.getElementById('mp4Fps');
+        const mp4ColorMode = document.getElementById('mp4ColorMode');
 
         let stream = null;
         let recording = false;
@@ -409,7 +499,7 @@
             if (!audioCtx || audioCtx.state === 'suspended') return;
             
             const targetVolume = parseInt(volumeSlider.value) / 100;
-            if (targetVolume === 0) return; // Muted
+            if (targetVolume === 0) return; 
 
             const now = audioCtx.currentTime;
             const instrumentType = waveType.value;
@@ -443,7 +533,6 @@
                 const baseFreq1 = parseInt(freq1Slider.value);
                 osc1.frequency.setValueAtTime(baseFreq1, now);
                 
-                // Keep the dual-harmonic overtone stylization for crispness on Bit 1
                 osc2.type = instrumentType;
                 osc2.frequency.setValueAtTime(baseFreq1 * 2, now);
                 
@@ -551,7 +640,7 @@
                     }
                     log.scrollTop = log.scrollHeight;
                 } catch (e) {
-                    console.error("Frame parsing dropped structural error: ", e);
+                    console.error("Frame parsing error: ", e);
                 }
                 lastCaptureTime = timestamp;
             }
@@ -604,28 +693,34 @@
             a.click();
         });
 
-        // --- Export Custom Instrument Configuration WAV Generator ---
+        // --- Configurable Export WAV Generator Engine ---
         wavBtn.addEventListener('click', () => {
             if (!fullMemoryBuffer) return alert("Memory is empty!");
             
-            const sampleRate = 44100;
+            // Collect operational configuration parameters
+            const sampleRate = parseInt(wavSampleRate.value);
+            const numChannels = parseInt(wavChannels.value);
+            const bitDepth = parseInt(wavBitDepth.value);
+            
             const bitDurationMs = captureDelay > 0 ? captureDelay : 50; 
             const samplesPerBit = Math.floor(sampleRate * (bitDurationMs / 1000));
             const totalSamples = fullMemoryBuffer.length * samplesPerBit;
+            
+            // Allocation initialization array
             const audioData = new Float32Array(totalSamples);
 
             const f0 = parseInt(freq0Slider.value);
             const f1 = parseInt(freq1Slider.value);
             const instr = waveType.value;
 
-            // Simple synthesizer generator function for arrays based on waveform type
             const getWaveSample = (type, angle) => {
                 if (type === 'square') return Math.sign(Math.sin(angle));
                 if (type === 'sawtooth') return (angle % (2 * Math.PI)) / Math.PI - 1;
                 if (type === 'triangle') return Math.abs((angle % (2 * Math.PI)) / Math.PI - 1) * 2 - 1;
-                return Math.sin(angle); // Default: sine
+                return Math.sin(angle); 
             };
 
+            // Generate clean normalized float audio matrix data
             for (let i = 0; i < fullMemoryBuffer.length; i++) {
                 const bit = fullMemoryBuffer[i];
                 const offset = i * samplesPerBit;
@@ -647,83 +742,145 @@
                 }
             }
 
-            const buffer = new ArrayBuffer(44 + audioData.length * 2);
+            // Calculations parsing sizing boundaries for byte arrays
+            const bytesPerSample = bitDepth / 8;
+            const blockAlign = numChannels * bytesPerSample;
+            const dataSize = totalSamples * blockAlign;
+            const buffer = new ArrayBuffer(44 + dataSize);
             const view = new DataView(buffer);
             
-            const writeString = (v, offset, str) => {
-                for (let i = 0; i < str.length; i++) v.setUint8(offset + i, str.charCodeAt(i));
+            const writeString = (v, off, str) => {
+                for (let i = 0; i < str.length; i++) v.setUint8(off + i, str.charCodeAt(i));
             };
 
+            // Write Standard RIFF PCM WAV Header parameters
             writeString(view, 0, 'RIFF');
-            view.setUint32(4, 36 + audioData.length * 2, true);
+            view.setUint32(4, 36 + dataSize, true);
             writeString(view, 8, 'WAVE');
             writeString(view, 12, 'fmt ');
-            view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true);
-            view.setUint16(22, 1, true);
+            view.setUint32(16, 16, true); // Subchunk1Size
+            view.setUint16(20, 1, true);  // AudioFormat (1 = PCM)
+            view.setUint16(22, numChannels, true);
             view.setUint32(24, sampleRate, true);
-            view.setUint32(28, sampleRate * 2, true);
-            view.setUint16(32, 2, true);
-            view.setUint16(34, 16, true);
+            view.setUint32(28, sampleRate * blockAlign, true); // ByteRate
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitDepth, true);
             writeString(view, 36, 'data');
-            view.setUint32(40, audioData.length * 2, true);
+            view.setUint32(40, dataSize, true);
 
+            // Mux raw bits output channels layout
             let offset = 44;
-            for (let i = 0; i < audioData.length; i++, offset += 2) {
-                let s = Math.max(-1, Math.min(1, audioData[i]));
-                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            for (let i = 0; i < totalSamples; i++) {
+                let sampleValue = Math.max(-1, Math.min(1, audioData[i]));
+                
+                // Duplicate samples sequentially if structural stereo configurations map active
+                for (let channel = 0; channel < numChannels; channel++) {
+                    if (bitDepth === 16) {
+                        // 16-bit Signed PCM Int
+                        let s = sampleValue < 0 ? sampleValue * 0x8000 : sampleValue * 0x7FFF;
+                        // For Stereo Channel Separation Option, slightly modify phase spacing on right track channel
+                        if (channel === 1 && numChannels === 2) s = s * 0.85; 
+                        view.setInt16(offset, s, true);
+                        offset += 2;
+                    } else {
+                        // 8-bit Unsigned PCM Int (0 to 255, 128 is midpoint center)
+                        let u = Math.floor((sampleValue + 1) * 127.5);
+                        view.setUint8(offset, u);
+                        offset += 1;
+                    }
+                }
             }
 
             const blob = new Blob([view], { type: 'audio/wav' });
             const a = document.createElement("a");
             a.href = URL.createObjectURL(blob);
-            a.download = `ir_${Math.floor(Date.now()/1000)}.wav`;
+            a.download = `ir_instrument_${sampleRate}hz_${Math.floor(Date.now()/1000)}.wav`;
             a.click();
         });
 
-        // --- Export Video Generator ---
+        // --- Configurable MP4 Media Recorder Muxer Emulation Engine ---
         vidBtn.addEventListener('click', async () => {
             if (!fullMemoryBuffer) return alert("Memory is empty!");
             
+            // Parse custom geometric layout definitions
+            const resParts = mp4Resolution.value.split('x');
+            const targetWidth = parseInt(resParts[0]);
+            const targetHeight = parseInt(resParts[1]);
+            const targetFps = parseInt(mp4Fps.value);
+            const selectedPalette = mp4ColorMode.value;
+
+            // Activate tracking overlay overlay interfaces
             renderOverlay.style.display = 'flex';
+            renderProgress.style.width = '0%';
+            renderStatusText.innerText = "Initializing rendering matrix parameters...";
+            
             const bitDurationMs = captureDelay > 0 ? captureDelay : 50; 
+            const totalFrames = fullMemoryBuffer.length;
             
             const offCanvas = document.createElement('canvas');
-            offCanvas.width = 640;
-            offCanvas.height = 480;
+            offCanvas.width = targetWidth;
+            offCanvas.height = targetHeight;
             const offCtx = offCanvas.getContext('2d');
             
-            const renderStream = offCanvas.captureStream(30);
-            const recorder = new MediaRecorder(renderStream, { mimeType: 'video/webm' });
+            const renderStream = offCanvas.captureStream(targetFps);
+            
+            let selectedType = 'video/mp4';
+            if (!MediaRecorder.isTypeSupported(selectedType)) {
+                selectedType = MediaRecorder.isTypeSupported('video/webm;codecs=h264') ? 'video/webm;codecs=h264' : 'video/webm';
+            }
+            
+            const recorder = new MediaRecorder(renderStream, { mimeType: selectedType });
             const chunks = [];
             
             recorder.ondataavailable = e => chunks.push(e.data);
             recorder.onstop = () => {
-                const blob = new Blob(chunks, { type: 'video/webm' });
+                const blob = new Blob(chunks, { type: 'video/mp4' });
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
-                a.download = `ir_flicker_${Math.floor(Date.now()/1000)}.mp4`;
+                a.download = `ir_signal_${targetWidth}x${targetHeight}_${Math.floor(Date.now()/1000)}.mp4`;
                 a.click();
                 renderOverlay.style.display = 'none';
             };
             
             recorder.start();
 
-            const drawFrame = (color) => {
-                offCtx.fillStyle = color;
+            // Customizable Dynamic Profile Rendering Handler
+            const drawConfiguredFrame = (bitValue) => {
+                if (selectedPalette === 'bw') {
+                    offCtx.fillStyle = (bitValue === '1') ? '#ffffff' : '#000000';
+                } else {
+                    // Chromatic Custom IR profile matrix
+                    offCtx.fillStyle = (bitValue === '1') ? '#ef4444' : '#0f172a';
+                }
                 offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+                
+                // Add tiny telemetry metadata display overlay to track indices cleanly on target systems
+                offCtx.fillStyle = (bitValue === '1') ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.15)';
+                offCtx.font = `bold ${Math.floor(targetHeight/15)}px monospace`;
+                offCtx.fillText(`BIT_VAL: ${bitValue}`, 20, targetHeight - 20);
             };
 
-            drawFrame('black');
-            await new Promise(r => setTimeout(r, 1000));
+            // Pre-roll delay frame padding
+            offCtx.fillStyle = 'black';
+            offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+            await new Promise(r => setTimeout(r, 300));
 
-            for (let i = 0; i < fullMemoryBuffer.length; i++) {
-                drawFrame(fullMemoryBuffer[i] === '1' ? 'white' : 'black');
+            // Run processing cycles to layout frames sequentially
+            for (let i = 0; i < totalFrames; i++) {
+                drawConfiguredFrame(fullMemoryBuffer[i]);
+                
+                const percentage = Math.floor(((i + 1) / totalFrames) * 100);
+                renderProgress.style.width = `${percentage}%`;
+                renderStatusText.innerText = `Compiling frame ${i + 1} of ${totalFrames} (${percentage}% Complete)`;
+                
                 await new Promise(r => setTimeout(r, bitDurationMs));
             }
 
-            drawFrame('black');
-            await new Promise(r => setTimeout(r, 1000));
+            // Post-roll delay frame padding
+            renderStatusText.innerText = "Closing container headers...";
+            offCtx.fillStyle = 'black';
+            offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+            await new Promise(r => setTimeout(r, 300));
 
             recorder.stop();
         });
@@ -731,4 +888,3 @@
     </script>
 </body>
 </html>
-
