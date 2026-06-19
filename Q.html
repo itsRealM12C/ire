@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optical Signal Analyzer Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --border-color: #64748b; /* Modern Slate Gray */
+            --btn-bg: #64748b;
+            --btn-text: #ffffff;
+            --log-bg: #111111;
+            --btn-hover: #475569;
+            --target-color: #ef4444;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f1f5f9;
+            --text-color: #1e293b;
+            --border-color: #94a3b8;
+            --btn-bg: #475569;
+            --btn-text: #ffffff;
+            --log-bg: #ffffff;
+            --btn-hover: #334155;
+            --target-color: #dc2626;
+        }
+
+        /* Prevent default browser selection highlights and add transparent tap highlight */
+        *, *::before, *::after {
+            -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
+            -webkit-touch-callout: none;
+        }
+
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            font-family: 'Comfortaa', sans-serif; 
+            text-align: center; 
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        h2 { border-bottom: 1px solid var(--border-color); padding-bottom: 10px; font-weight: 600; }
+        .video-container { position: relative; display: inline-block; margin-top: 10px; }
+        video { 
+            border: 2px solid var(--border-color); 
+            border-radius: 12px; 
+            background: #000;
+        }
+        .mirrored { transform: scaleX(-1); }
+        .target {
+            position: absolute; top: 50%; left: 50%;
+            width: 20px; height: 20px; margin-top: -10px; margin-left: -10px;
+            border: 2px solid var(--target-color); box-sizing: border-box; pointer-events: none;
+            border-radius: 4px;
+        }
+        canvas { display: none; }
+        #log { 
+            background: var(--log-bg); padding: 15px; border: 1px solid var(--border-color); 
+            height: 220px; overflow-y: auto; text-align: left; word-break: break-all; 
+            margin-top: 20px; font-size: 14px; letter-spacing: 1px; line-height: 1.6;
+            border-radius: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+            transition: background-color 0.3s;
+        }
+        .controls-container {
+            margin: 20px auto; border: 1px dashed var(--border-color); padding: 20px; 
+            display: inline-block; max-width: 900px; border-radius: 12px;
+            box-sizing: border-box; width: 100%;
+        }
+        .controls-row {
+            margin-bottom: 15px; display: flex; flex-wrap: wrap; justify-content: center; 
+            gap: 12px; align-items: stretch;
+        }
+        .controls-group {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(100, 116, 139, 0.1); padding: 10px 15px; border: 1px solid var(--border-color); border-radius: 8px;
+            flex: 1; min-width: 160px;
+        }
+        .controls-group label { font-size: 12px; margin-bottom: 4px; }
+        
+        button, select { 
+            background: var(--btn-bg); color: var(--btn-text); font-weight: 500; 
+            padding: 10px 14px; border: none; cursor: pointer; border-radius: 8px;
+            font-family: 'Comfortaa', sans-serif; transition: background-color 0.2s, transform 0.1s;
+            outline: none; font-size: 13px;
+        }
+        button:hover, select:hover { background: var(--btn-hover); }
+        button:active { transform: scale(0.98); }
+        button:disabled { background: #64748b; opacity: 0.4; cursor: not-allowed; }
+        
+        .special-btn { background: #dc2626; color: #fff; }
+        .special-btn:hover { background: #b91c1c; }
+        .export-btn { background: #2563eb; color: #fff; }
+        .export-btn:hover { background: #1d4ed8; }
+        .map-btn { background: #ea580c; color: #fff; }
+        .map-btn:hover { background: #c2410c; }
+
+        input[type="range"] {
+            -webkit-appearance: none; width: 100%; max-width: 140px; height: 6px; border-radius: 5px; outline: none; 
+            margin-top: 6px; border: 1px solid var(--border-color); background: #334155;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 14px; height: 14px; 
+            background: var(--text-color); cursor: pointer; border-radius: 50%;
+        }
+        #thresholdSlider { background: linear-gradient(to right, #000000, #ffffff); }
+        .status-text { font-size: 12px; margin-top: 10px; opacity: 0.7; }
+        #keymapStatus { color: #f59e0b; font-weight: 500; margin-left: 10px; font-size: 13px; }
+        #liveColor { font-weight: bold; margin-left: 10px; color: var(--text-color); font-size: 13px; }
+        
+        .section-title {
+            width: 100%; text-align: left; font-size: 11px; font-weight: bold; 
+            text-transform: uppercase; letter-spacing: 1px; margin: 5px 0; opacity: 0.6;
+        }
+
+        /* Extended Rendering Progress Overlay */
+        #renderOverlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.95); display: none; flex-direction: column; 
+            justify-content: center; align-items: center; z-index: 1000; color: #fff;
+        }
+        .progress-box {
+            width: 80%; max-width: 500px; background: #334155; 
+            border-radius: 20px; padding: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            margin: 20px 0; border: 1px solid var(--border-color);
+        }
+        .progress-bar {
+            width: 0%; height: 16px; background: linear-gradient(90deg, #3b82f6, #10b981); 
+            border-radius: 20px; transition: width 0.1s linear;
+        }
+        #renderStatusText { font-size: 14px; opacity: 0.8; font-weight: 300; }
+    </style>
+</head>
+<body>
+
+    <div id="renderOverlay">
+        <h2>Converting Container to MP4 Pipeline</h2>
+        <div class="progress-box">
+            <div id="renderProgress" class="progress-bar"></div>
+        </div>
+        <p id="renderStatusText">Processing frames: 0% complete</p>
+    </div>
+
+    <h2>Optical Signal Analyzer Pro</h2>
+    <p>Targeted Chromatic IR Pulse Decoder (Rejects White Flashlights)</p>
+
+    <div class="video-container">
+        <video id="cameraFeed" width="320" height="240" autoplay playsinline muted></video>
+        <div class="target"></div>
+    </div>
+    
+    <canvas id="processor" width="320" height="240"></canvas>
+
+    <div class="controls-container">
+        <div class="section-title">Signal Scanning Engine</div>
+        <div class="controls-row">
+            <div class="controls-group">
+                <label for="speedSlider"><strong>IR Speed Delay: </strong><span id="speedVal">50ms</span></label>
+                <input id="speedSlider" type="range" min="0" max="1000" step="10" value="50">
+            </div>
+            <div class="controls-group">
+                <label for="thresholdSlider"><strong>Min IR Intensity (R): </strong><span id="thresholdVal">160</span></label>
+                <input id="thresholdSlider" type="range" min="0" max="255" value="160">
+            </div>
+        </div>
+
+        <div class="section-title">Live Synth Monitor Instrument</div>
+        <div class="controls-row" style="background: rgba(100,116,139,0.05); padding: 8px; border-radius: 8px; border: 1px dashed rgba(100,116,139,0.2);">
+            <div class="controls-group">
+                <label for="waveType"><strong>0/1 Waveform</strong></label>
+                <select id="waveType" style="padding: 4px 6px; margin-top: 4px; font-size: 11px;">
+                    <option value="sine">Sine (Smooth)</option>
+                    <option value="square">Square (Retro)</option>
+                    <option value="sawtooth">Sawtooth (Bright)</option>
+                    <option value="triangle">Triangle (Warm)</option>
+                </select>
+            </div>
+            <div class="controls-group">
+                <label for="freq0Slider"><strong>Bit 0 Freq: </strong><span id="freq0Val">330Hz</span></label>
+                <input id="freq0Slider" type="range" min="100" max="2000" step="10" value="330">
+            </div>
+            <div class="controls-group">
+                <label for="freq1Slider"><strong>Bit 1 Freq: </strong><span id="freq1Val">880Hz</span></label>
+                <input id="freq1Slider" type="range" min="100" max="3000" step="10" value="880">
+            </div>
+            <div class="controls-group">
+                <label for="volumeSlider"><strong>Synth Vol: </strong><span id="volumeVal">30%</span></label>
+                <input id="volumeSlider" type="range" min="0" max="100" step="5" value="30">
+            </div>
+        </div>
+
+        <div class="section-title">WAV File Config setup</div>
+        <div class="controls-row" style="background: rgba(37, 99, 235, 0.05); padding: 8px; border-radius: 8px; border: 1px solid rgba(37, 99, 235, 0.2);">
+            <div class="controls-group">
+                <label for="wavChannels"><strong>Channels</strong></label>
+                <select id="wavChannels" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="1">1 (Mono)</option>
+                    <option value="2">2 (Stereo Split)</option>
+                </select>
+            </div>
+            <div class="controls-group">
+                <label for="wavSampleRate"><strong>Sample Frequency</strong></label>
+                <select id="wavSampleRate" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="44100">44.1 kHz (HQ)</option>
+                    <option value="22050">22.05 kHz (Medium)</option>
+                    <option value="8000">8.00 kHz (Lo-Fi)</option>
+                </select>
+            </div>
+            <div class="controls-group">
+                <label for="wavBitDepth"><strong>Quality Depth</strong></label>
+                <select id="wavBitDepth" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="16">16-bit PCM</option>
+                    <option value="8">8-bit PCM Unsigned</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="section-title">MP4 File Config setup</div>
+        <div class="controls-row" style="background: rgba(16, 185, 129, 0.05); padding: 8px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.2);">
+            <div class="controls-group">
+                <label for="mp4Resolution"><strong>Resolution Output</strong></label>
+                <select id="mp4Resolution" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="640x480">640 x 480 (Standard)</option>
+                    <option value="320x240">320 x 240 (Fast Render)</option>
+                    <option value="1280x720">1280 x 720 (HD)</option>
+                </select>
+            </div>
+            <div class="controls-group">
+                <label for="mp4Fps"><strong>Frame Target Rate</strong></label>
+                <select id="mp4Fps" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="30">30 FPS (Fluid)</option>
+                    <option value="60">60 FPS (High-Speed)</option>
+                    <option value="15">15 FPS (Compact)</option>
+                </select>
+            </div>
+            <div class="controls-group">
+                <label for="mp4ColorMode"><strong>Color Palette Profile</strong></label>
+                <select id="mp4ColorMode" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
+                    <option value="bw">B&W (0=Black, 1=White)</option>
+                    <option value="chroma">IR Spectrum (0=Blue, 1=Red)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="section-title">UI & Pipeline Interfaces</div>
+        <div class="controls-row">
+            <button id="themeBtn">L/D Mode: Dark</button>
+            <label for="displayMode" style="align-self: center;"><strong>Format: </strong></label>
+            <select id="displayMode">
+                <option value="raw">Raw Binary (0/1)</option>
+                <option value="block">Visual Blocks (░/█)</option>
+                <option value="decode">ASCII (8-bit)</option>
+                <option value="hex">Hexadecimal (8-bit)</option>
+                <option value="dec">Decimal (8-bit)</option>
+                <option value="keymap">Keymap Decoder (16-bit)</option>
+            </select>
+            <span id="liveColor" style="align-self: center;">HEX: #000000</span>
+        </div>
+
+        <div class="controls-row">
+            <button id="startCamBtn">Init Camera</button>
+            <button id="fbBtn" disabled>F/B Cam: Back</button>
+            <button id="flipBtn">Mirror View</button>
+            <input type="file" id="keymapFile" accept=".txt" style="display:none;">
+            <button id="loadKeymapBtn" class="map-btn">Manual Map Load</button>
+            <span id="keymapStatus" style="align-self: center;">Looking for keymap.txt...</span>
+        </div>
+
+        <div class="controls-row">
+            <button id="recordBtn" disabled>Start Recording</button>
+            <button id="clearBtn">Clear Memory</button>
+            <button id="saveBtn">Save to TXT</button>
+            <button id="wavBtn" class="export-btn">Convert IR as WAV</button>
+            <button id="vidBtn" class="export-btn">Convert IR as MP4</button>
+        </div>
+        
+        <div id="runtimeStatus" class="status-text">Pipeline configured. Precision parameter wrappers online.</div>
+    </div>
+
+    <h3>Data Stream (Memory):</h3>
+    <div id="log"></div>
+
+    <script>
+        const video = document.getElementById('cameraFeed');
+        const canvas = document.getElementById('processor');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const log = document.getElementById('log');
+        
+        const themeBtn = document.getElementById('themeBtn');
+        const displayMode = document.getElementById('displayMode');
+        const startCamBtn = document.getElementById('startCamBtn');
+        const fbBtn = document.getElementById('fbBtn');
+        const flipBtn = document.getElementById('flipBtn');
+        const recordBtn = document.getElementById('recordBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const wavBtn = document.getElementById('wavBtn');
+        const vidBtn = document.getElementById('vidBtn');
+        
+        const keymapFile = document.getElementById('keymapFile');
+        const loadKeymapBtn = document.getElementById('loadKeymapBtn');
+        const keymapStatus = document.getElementById('keymapStatus');
+        const liveColor = document.getElementById('liveColor');
+        const runtimeStatus = document.getElementById('runtimeStatus');
+        
+        const speedSlider = document.getElementById('speedSlider');
+        const speedVal = document.getElementById('speedVal');
+        const thresholdSlider = document.getElementById('thresholdSlider');
+        const thresholdVal = document.getElementById('thresholdVal');
+        
+        // Progress bar elements
+        const renderOverlay = document.getElementById('renderOverlay');
+        const renderProgress = document.getElementById('renderProgress');
+        const renderStatusText = document.getElementById('renderStatusText');
+
+        // Synth control bindings
+        const waveType = document.getElementById('waveType');
+        const freq0Slider = document.getElementById('freq0Slider');
+        const freq0Val = document.getElementById('freq0Val');
+        const freq1Slider = document.getElementById('freq1Slider');
+        const freq1Val = document.getElementById('freq1Val');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeVal = document.getElementById('volumeVal');
+
+        // New Advanced Export Bindings
+        const wavChannels = document.getElementById('wavChannels');
+        const wavSampleRate = document.getElementById('wavSampleRate');
+        const wavBitDepth = document.getElementById('wavBitDepth');
+        const mp4Resolution = document.getElementById('mp4Resolution');
+        const mp4Fps = document.getElementById('mp4Fps');
+        const mp4ColorMode = document.getElementById('mp4ColorMode');
+
+        let stream = null;
+        let recording = false;
+        let animationFrameId = null;
+        let currentFacingMode = "environment"; 
+        let isDarkMode = true;
+        
+        let audioCtx = null;
+        let bitBuffer = ""; 
+        let fullMemoryBuffer = ""; 
+        
+        let MIN_RED_INTENSITY = parseInt(thresholdSlider.value); 
+        let captureDelay = parseInt(speedSlider.value); 
+        let lastCaptureTime = 0;
+        
+        let customKeymap = {};
+
+        // --- Auto-Load Keymap ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('keymap.txt');
+                if (!response.ok) throw new Error("File not found.");
+                const text = await response.text();
+                parseKeymapText(text);
+            } catch (err) {
+                keymapStatus.innerText = "No auto-map found. Use Manual Load.";
+                keymapStatus.style.color = "#888";
+            }
+        });
+
+        // --- Manual Load Fallback ---
+        loadKeymapBtn.addEventListener('click', () => { keymapFile.click(); });
+        keymapFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                parseKeymapText(e.target.result);
+                keymapFile.value = ''; 
+            };
+            reader.readAsText(file);
+        });
+
+        function parseKeymapText(text) {
+            const lines = text.split('\n');
+            let count = 0;
+            customKeymap = {};
+            
+            for (let line of lines) {
+                if (line.includes('│')) {
+                    let parts = line.split('│');
+                    if (parts.length >= 4 && !line.includes('Key name')) {
+                        let keyName = parts[1].trim();
+                        let keyDecStr = parts[3].trim();
+                        let keyDec = parseInt(keyDecStr, 10);
+                        
+                        if (!isNaN(keyDec)) {
+                            customKeymap[keyDec] = keyName;
+                            count++;
+                        }
+                    }
+                }
+            }
+            
+            if (count > 0) {
+                displayMode.value = "keymap"; 
+                keymapStatus.innerText = `[ Active: ${count} Keys ]`;
+                keymapStatus.style.color = "var(--border-color)";
+            } else {
+                keymapStatus.innerText = "Error: Invalid map format.";
+                keymapStatus.style.color = "#ef4444";
+            }
+        }
+
+        // --- Controls Event Listeners ---
+        speedSlider.addEventListener('input', (e) => {
+            captureDelay = parseInt(e.target.value);
+            speedVal.innerText = captureDelay === 0 ? "0ms (Max)" : `${captureDelay}ms`;
+        });
+
+        thresholdSlider.addEventListener('input', (e) => {
+            MIN_RED_INTENSITY = parseInt(e.target.value);
+            thresholdVal.innerText = MIN_RED_INTENSITY;
+        });
+
+        freq0Slider.addEventListener('input', (e) => { freq0Val.innerText = `${e.target.value}Hz`; });
+        freq1Slider.addEventListener('input', (e) => { freq1Val.innerText = `${e.target.value}Hz`; });
+        volumeSlider.addEventListener('input', (e) => { volumeVal.innerText = `${e.target.value}%`; });
+
+        themeBtn.addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                document.body.removeAttribute('data-theme');
+                themeBtn.innerText = "L/D Mode: Dark";
+            } else {
+                document.body.setAttribute('data-theme', 'light');
+                themeBtn.innerText = "L/D Mode: Light";
+            }
+        });
+
+        displayMode.addEventListener('change', () => { bitBuffer = ""; });
+
+        // --- Secure Isolated Camera Hook ---
+        async function startCamera() {
+            runtimeStatus.innerText = "Initializing user media pipeline...";
+            runtimeStatus.style.color = "var(--text-color)";
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            
+            const cleanVideoConstraints = [
+                { video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+                { video: { facingMode: currentFacingMode }, audio: false },
+                { video: true, audio: false }
+            ];
+
+            let success = false;
+            for (let constraints of cleanVideoConstraints) {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    video.srcObject = stream;
+                    await video.play();
+                    
+                    recordBtn.disabled = false;
+                    fbBtn.disabled = false;
+                    startCamBtn.innerText = "Restart Camera";
+                    runtimeStatus.innerText = "Camera linked successfully. Frame capture ready.";
+                    success = true;
+                    break;
+                } catch (err) {
+                    console.warn("Media constraints profile failed, shifting...", err);
+                }
+            }
+
+            if (!success) {
+                runtimeStatus.innerText = "Initialization failed. Secure domain (HTTPS/Localhost) needed.";
+                runtimeStatus.style.color = "#ef4444";
+                alert("Camera Access Error: Ensure site security flags permit video. Audio is locked down.");
+            }
+        }
+        
+        startCamBtn.addEventListener('click', startCamera);
+        fbBtn.addEventListener('click', () => {
+            currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment";
+            fbBtn.innerText = (currentFacingMode === "environment") ? "F/B Cam: Back" : "F/B Cam: Front";
+            startCamera();
+        });
+        flipBtn.addEventListener('click', () => { video.classList.toggle('mirrored'); });
+
+        // --- Customizable Instruments Sound Engine ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+        
+        function playSmoothSound(bit) {
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+            
+            const targetVolume = parseInt(volumeSlider.value) / 100;
+            if (targetVolume === 0) return; 
+
+            const now = audioCtx.currentTime;
+            const instrumentType = waveType.value;
+            
+            if (bit === "0") {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.type = instrumentType;
+                osc.frequency.setValueAtTime(parseInt(freq0Slider.value), now);
+                
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(targetVolume * 0.15, now + 0.002);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.02);
+                
+                osc.start(now);
+                osc.stop(now + 0.022);
+            } else {
+                const osc1 = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc1.type = instrumentType;
+                const baseFreq1 = parseInt(freq1Slider.value);
+                osc1.frequency.setValueAtTime(baseFreq1, now);
+                
+                osc2.type = instrumentType;
+                osc2.frequency.setValueAtTime(baseFreq1 * 2, now);
+                
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(targetVolume * 0.18, now + 0.003);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+                
+                osc1.start(now);
+                osc2.start(now);
+                osc1.stop(now + 0.037);
+                osc2.stop(now + 0.037);
+            }
+        }
+
+        // --- Core Capture Loop ---
+        recordBtn.addEventListener('click', () => {
+            initAudio(); 
+            if (!recording) {
+                recording = true;
+                bitBuffer = ""; 
+                recordBtn.innerText = "Stop Recording";
+                recordBtn.classList.add('special-btn');
+                lastCaptureTime = performance.now();
+                animationFrameId = requestAnimationFrame(captureFrame);
+            } else {
+                recording = false;
+                recordBtn.innerText = "Start Recording";
+                recordBtn.classList.remove('special-btn');
+                cancelAnimationFrame(animationFrameId);
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            log.innerText = "";
+            fullMemoryBuffer = "";
+            bitBuffer = "";
+        });
+
+        function captureFrame(timestamp) {
+            if (!recording) return;
+
+            if (timestamp - lastCaptureTime >= captureDelay) {
+                try {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    const size = 6;
+                    const startX = (canvas.width / 2) - size;
+                    const startY = (canvas.height / 2) - size;
+                    const imgData = ctx.getImageData(startX, startY, size * 2, size * 2).data;
+                    
+                    let rSum = 0, gSum = 0, bSum = 0;
+                    let count = 0;
+                    
+                    for (let i = 0; i < imgData.length; i += 4) {
+                        rSum += imgData[i];
+                        gSum += imgData[i+1];
+                        bSum += imgData[i+2];
+                        count++;
+                    }
+                    
+                    let avgR = Math.floor(rSum / count);
+                    let avgG = Math.floor(gSum / count);
+                    let avgB = Math.floor(bSum / count);
+                    
+                    let hexStr = "#" + ((1 << 24) + (avgR << 16) + (avgG << 8) + avgB).toString(16).slice(1).toUpperCase();
+                    liveColor.innerText = `HEX: ${hexStr}`;
+
+                    let isIR = (avgR >= MIN_RED_INTENSITY) && (avgB > 100) && (avgG < (avgR * 0.75)) && (avgG < (avgB * 0.85));
+                    
+                    const bit = isIR ? "1" : "0";
+                    fullMemoryBuffer += bit;
+                    playSmoothSound(bit);
+
+                    const mode = displayMode.value;
+                    if (mode === "raw") {
+                        log.innerHTML += bit;
+                    } else if (mode === "block") {
+                        log.innerHTML += (bit === "1") ? "█" : "░";
+                    } else if (mode === "keymap") {
+                        bitBuffer += bit;
+                        if (bitBuffer.length === 16) {
+                            const charCode = parseInt(bitBuffer, 2);
+                            const matchedKey = customKeymap[charCode];
+                            
+                            if (matchedKey) {
+                                log.innerHTML += `<span style="color:#fff; background:var(--btn-bg); padding:2px 6px; margin:2px; border-radius:4px; font-size:12px;">[${matchedKey}]</span> `;
+                            } else {
+                                log.innerHTML += `<span style="color:#64748b; font-size:12px;">[UNK:${charCode}]</span> `;
+                            }
+                            bitBuffer = ""; 
+                        }
+                    } else {
+                        bitBuffer += bit;
+                        if (bitBuffer.length === 8) {
+                            const charCode = parseInt(bitBuffer, 2);
+                            if (mode === "decode") {
+                                log.appendChild(document.createTextNode((charCode >= 32 && charCode <= 126) ? String.fromCharCode(charCode) : "."));
+                            } else if (mode === "hex") {
+                                log.innerHTML += charCode.toString(16).toUpperCase().padStart(2, '0') + " ";
+                            } else if (mode === "dec") {
+                                log.innerHTML += charCode.toString(10) + " ";
+                            }
+                            bitBuffer = ""; 
+                        }
+                    }
+                    log.scrollTop = log.scrollHeight;
+                } catch (e) {
+                    console.error("Frame parsing error: ", e);
+                }
+                lastCaptureTime = timestamp;
+            }
+            animationFrameId = requestAnimationFrame(captureFrame);
+        }
+
+        // --- Export Text ---
+        saveBtn.addEventListener('click', () => {
+            if (!fullMemoryBuffer) return alert("Memory is empty!");
+            
+            let outputText = "";
+            const mode = displayMode.value;
+
+            if (mode === "block") {
+                for (let i = 0; i < fullMemoryBuffer.length; i++) {
+                    outputText += (fullMemoryBuffer[i] === "1") ? "█" : "░";
+                }
+            } else if (mode === "keymap") {
+                for (let i = 0; i < fullMemoryBuffer.length; i += 16) {
+                    let byteStr = fullMemoryBuffer.substring(i, i + 16);
+                    if (byteStr.length === 16) {
+                        let charCode = parseInt(byteStr, 2);
+                        let matchedKey = customKeymap[charCode];
+                        outputText += matchedKey ? `[${matchedKey}] ` : `[UNK:${charCode}] `;
+                    }
+                }
+            } else if (mode === "hex" || mode === "dec" || mode === "decode") {
+                for (let i = 0; i < fullMemoryBuffer.length; i += 8) {
+                    let byteStr = fullMemoryBuffer.substring(i, i + 8);
+                    if (byteStr.length === 8) {
+                        let charCode = parseInt(byteStr, 2);
+                        if (mode === "hex") {
+                            outputText += charCode.toString(16).toUpperCase().padStart(2, '0') + " ";
+                        } else if (mode === "dec") {
+                            outputText += charCode.toString(10) + " ";
+                        } else if (mode === "decode") {
+                            outputText += (charCode >= 32 && charCode <= 126) ? String.fromCharCode(charCode) : ".";
+                        }
+                    }
+                }
+            } else {
+                outputText = fullMemoryBuffer; 
+            }
+
+            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+            const blob = new Blob([bom, outputText], { type: "text/plain;charset=utf-8" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `ir_capture_${Math.floor(Date.now()/1000)}.txt`;
+            a.click();
+        });
+
+        // --- Configurable Export WAV Generator Engine ---
+        wavBtn.addEventListener('click', () => {
+            if (!fullMemoryBuffer) return alert("Memory is empty!");
+            
+            // Collect operational configuration parameters
+            const sampleRate = parseInt(wavSampleRate.value);
+            const numChannels = parseInt(wavChannels.value);
+            const bitDepth = parseInt(wavBitDepth.value);
+            
+            const bitDurationMs = captureDelay > 0 ? captureDelay : 50; 
+            const samplesPerBit = Math.floor(sampleRate * (bitDurationMs / 1000));
+            const totalSamples = fullMemoryBuffer.length * samplesPerBit;
+            
+            // Allocation initialization array
+            const audioData = new Float32Array(totalSamples);
+
+            const f0 = parseInt(freq0Slider.value);
+            const f1 = parseInt(freq1Slider.value);
+            const instr = waveType.value;
+
+            const getWaveSample = (type, angle) => {
+                if (type === 'square') return Math.sign(Math.sin(angle));
+                if (type === 'sawtooth') return (angle % (2 * Math.PI)) / Math.PI - 1;
+                if (type === 'triangle') return Math.abs((angle % (2 * Math.PI)) / Math.PI - 1) * 2 - 1;
+                return Math.sin(angle); 
+            };
+
+            // Generate clean normalized float audio matrix data
+            for (let i = 0; i < fullMemoryBuffer.length; i++) {
+                const bit = fullMemoryBuffer[i];
+                const offset = i * samplesPerBit;
+                
+                if (bit === '0') {
+                    const angularFreq = 2 * Math.PI * f0 / sampleRate;
+                    for (let j = 0; j < samplesPerBit; j++) {
+                        let envelope = (j < samplesPerBit * 0.1) ? (j / (samplesPerBit * 0.1)) : Math.max(0, 1 - (j / samplesPerBit));
+                        audioData[offset + j] = getWaveSample(instr, angularFreq * j) * 0.15 * envelope;
+                    }
+                } else {
+                    const angularFreq1 = 2 * Math.PI * f1 / sampleRate;
+                    const angularFreq2 = 2 * Math.PI * (f1 * 2) / sampleRate;
+                    for (let j = 0; j < samplesPerBit; j++) {
+                        let envelope = (j < samplesPerBit * 0.1) ? (j / (samplesPerBit * 0.1)) : Math.max(0, 1 - (j / samplesPerBit));
+                        let mixedValue = getWaveSample(instr, angularFreq1 * j) + getWaveSample(instr, angularFreq2 * j);
+                        audioData[offset + j] = mixedValue * 0.1 * envelope;
+                    }
+                }
+            }
+
+            // Calculations parsing sizing boundaries for byte arrays
+            const bytesPerSample = bitDepth / 8;
+            const blockAlign = numChannels * bytesPerSample;
+            const dataSize = totalSamples * blockAlign;
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(buffer);
+            
+            const writeString = (v, off, str) => {
+                for (let i = 0; i < str.length; i++) v.setUint8(off + i, str.charCodeAt(i));
+            };
+
+            // Write Standard RIFF PCM WAV Header parameters
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + dataSize, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true); // Subchunk1Size
+            view.setUint16(20, 1, true);  // AudioFormat (1 = PCM)
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * blockAlign, true); // ByteRate
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitDepth, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataSize, true);
+
+            // Mux raw bits output channels layout
+            let offset = 44;
+            for (let i = 0; i < totalSamples; i++) {
+                let sampleValue = Math.max(-1, Math.min(1, audioData[i]));
+                
+                // Duplicate samples sequentially if structural stereo configurations map active
+                for (let channel = 0; channel < numChannels; channel++) {
+                    if (bitDepth === 16) {
+                        // 16-bit Signed PCM Int
+                        let s = sampleValue < 0 ? sampleValue * 0x8000 : sampleValue * 0x7FFF;
+                        // For Stereo Channel Separation Option, slightly modify phase spacing on right track channel
+                        if (channel === 1 && numChannels === 2) s = s * 0.85; 
+                        view.setInt16(offset, s, true);
+                        offset += 2;
+                    } else {
+                        // 8-bit Unsigned PCM Int (0 to 255, 128 is midpoint center)
+                        let u = Math.floor((sampleValue + 1) * 127.5);
+                        view.setUint8(offset, u);
+                        offset += 1;
+                    }
+                }
+            }
+
+            const blob = new Blob([view], { type: 'audio/wav' });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `ir_instrument_${sampleRate}hz_${Math.floor(Date.now()/1000)}.wav`;
+            a.click();
+        });
+
+        // --- Configurable MP4 Media Recorder Muxer Emulation Engine ---
+        vidBtn.addEventListener('click', async () => {
+            if (!fullMemoryBuffer) return alert("Memory is empty!");
+            
+            // Parse custom geometric layout definitions
+            const resParts = mp4Resolution.value.split('x');
+            const targetWidth = parseInt(resParts[0]);
+            const targetHeight = parseInt(resParts[1]);
+            const targetFps = parseInt(mp4Fps.value);
+            const selectedPalette = mp4ColorMode.value;
+
+            // Activate tracking overlay overlay interfaces
+            renderOverlay.style.display = 'flex';
+            renderProgress.style.width = '0%';
+            renderStatusText.innerText = "Initializing rendering matrix parameters...";
+            
+            const bitDurationMs = captureDelay > 0 ? captureDelay : 50; 
+            const totalFrames = fullMemoryBuffer.length;
+            
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = targetWidth;
+            offCanvas.height = targetHeight;
+            const offCtx = offCanvas.getContext('2d');
+            
+            const renderStream = offCanvas.captureStream(targetFps);
+            
+            let selectedType = 'video/mp4';
+            if (!MediaRecorder.isTypeSupported(selectedType)) {
+                selectedType = MediaRecorder.isTypeSupported('video/webm;codecs=h264') ? 'video/webm;codecs=h264' : 'video/webm';
+            }
+            
+            const recorder = new MediaRecorder(renderStream, { mimeType: selectedType });
+            const chunks = [];
+            
+            recorder.ondataavailable = e => chunks.push(e.data);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/mp4' });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `ir_signal_${targetWidth}x${targetHeight}_${Math.floor(Date.now()/1000)}.mp4`;
+                a.click();
+                renderOverlay.style.display = 'none';
+            };
+            
+            recorder.start();
+
+            // Customizable Dynamic Profile Rendering Handler
+            const drawConfiguredFrame = (bitValue) => {
+                if (selectedPalette === 'bw') {
+                    offCtx.fillStyle = (bitValue === '1') ? '#ffffff' : '#000000';
+                } else {
+                    // Chromatic Custom IR profile matrix
+                    offCtx.fillStyle = (bitValue === '1') ? '#ef4444' : '#0f172a';
+                }
+                offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+                
+                // Add tiny telemetry metadata display overlay to track indices cleanly on target systems
+                offCtx.fillStyle = (bitValue === '1') ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.15)';
+                offCtx.font = `bold ${Math.floor(targetHeight/15)}px monospace`;
+                offCtx.fillText(`BIT_VAL: ${bitValue}`, 20, targetHeight - 20);
+            };
+
+            // Pre-roll delay frame padding
+            offCtx.fillStyle = 'black';
+            offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+            await new Promise(r => setTimeout(r, 300));
+
+            // Run processing cycles to layout frames sequentially
+            for (let i = 0; i < totalFrames; i++) {
+                drawConfiguredFrame(fullMemoryBuffer[i]);
+                
+                const percentage = Math.floor(((i + 1) / totalFrames) * 100);
+                renderProgress.style.width = `${percentage}%`;
+                renderStatusText.innerText = `Compiling frame ${i + 1} of ${totalFrames} (${percentage}% Complete)`;
+                
+                await new Promise(r => setTimeout(r, bitDurationMs));
+            }
+
+            // Post-roll delay frame padding
+            renderStatusText.innerText = "Closing container headers...";
+            offCtx.fillStyle = 'black';
+            offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+            await new Promise(r => setTimeout(r, 300));
+
+            recorder.stop();
+        });
+
+    </script>
+</body>
+</html>
