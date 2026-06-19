@@ -226,10 +226,11 @@
             <div class="controls-group">
                 <label for="mp4Resolution"><strong>Resolution Output</strong></label>
                 <select id="mp4Resolution" style="padding: 4px 6px; font-size: 11px; margin-top: 4px;">
-                    <option value="1x1">1 x 1 (Ultra Fast Profile)</option>
+                    <option value="100x100">100 x 100 (Fast Matrix)</option>
                     <option value="640x480">640 x 480 (Standard)</option>
-                    <option value="320x240">320 x 240 (Fast Render)</option>
+                    <option value="320x240">320 x 240 (Legacy Screen)</option>
                     <option value="1280x720">1280 x 720 (HD)</option>
+                    <option value="1x1">1 x 1 (Bare Minimum)</option>
                 </select>
             </div>
             <div class="controls-group">
@@ -793,14 +794,12 @@
         vidBtn.addEventListener('click', async () => {
             if (!fullMemoryBuffer) return alert("Memory is empty!");
             
-            // Parse custom geometric layout definitions
             const resParts = mp4Resolution.value.split('x');
             const targetWidth = parseInt(resParts[0]);
             const targetHeight = parseInt(resParts[1]);
             const targetFps = parseInt(mp4Fps.value);
             const selectedPalette = mp4ColorMode.value;
 
-            // Activate tracking overlay overlay interfaces
             renderOverlay.style.display = 'flex';
             renderProgress.style.width = '0%';
             renderStatusText.innerText = "Initializing rendering matrix parameters...";
@@ -835,7 +834,6 @@
             
             recorder.start();
 
-            // Customizable Dynamic Profile Rendering Handler
             const drawConfiguredFrame = (bitValue) => {
                 if (selectedPalette === 'bw') {
                     offCtx.fillStyle = (bitValue === '1') ? '#ffffff' : '#000000';
@@ -844,20 +842,18 @@
                 }
                 offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
                 
-                // Only write text metadata if the bounds are large enough to display it
-                if (targetWidth > 1 && targetHeight > 1) {
-                    offCtx.fillStyle = (bitValue === '1') ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.15)';
-                    offCtx.font = `bold ${Math.floor(targetHeight/15)}px monospace`;
-                    offCtx.fillText(`BIT_VAL: ${bitValue}`, 20, targetHeight - 20);
+                // Add visible text tags if resolution allows comfortably
+                if (targetWidth >= 100 && targetHeight >= 100) {
+                    offCtx.fillStyle = (bitValue === '1') ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)';
+                    offCtx.font = `bold ${Math.floor(targetHeight/6)}px monospace`;
+                    offCtx.fillText(bitValue, Math.floor(targetWidth/2.6), Math.floor(targetHeight/1.6));
                 }
             };
 
-            // Pre-roll delay frame padding
             offCtx.fillStyle = 'black';
             offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
             await new Promise(r => setTimeout(r, 300));
 
-            // Run processing cycles to layout frames sequentially
             for (let i = 0; i < totalFrames; i++) {
                 drawConfiguredFrame(fullMemoryBuffer[i]);
                 
@@ -868,7 +864,6 @@
                 await new Promise(r => setTimeout(r, bitDurationMs));
             }
 
-            // Post-roll delay frame padding
             renderStatusText.innerText = "Closing container headers...";
             offCtx.fillStyle = 'black';
             offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
